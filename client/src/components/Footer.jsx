@@ -1,27 +1,30 @@
-import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaPhone, FaEnvelope, FaMapMarkerAlt } from 'react-icons/fa';
+import React from 'react';
 import { Link } from 'react-router-dom';
+import { FiFacebook, FiTwitter, FiInstagram, FiLinkedin } from 'react-icons/fi';
 
 const Footer = () => {
   return (
-    <footer className="bg-dark text-white py-12">
-      <div className="max-w-7xl mx-auto px-4">
+    <footer className="bg-primary dark:bg-dark text-white mt-20">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          {/* Company Info */}
+          {/* About */}
           <div>
-            <h3 className="text-2xl font-bold mb-4">ShopVerse</h3>
-            <p className="text-gray-300 mb-4">Your ultimate destination for premium shopping experience.</p>
-            <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-accent transition">
-                <FaFacebook />
+            <h3 className="text-xl font-bold mb-4 text-secondary">SHOPVERSE</h3>
+            <p className="text-gray-300 mb-4">
+              Your ultimate online shopping destination for premium products at unbeatable prices.
+            </p>
+            <div className="flex gap-4 text-xl">
+              <a href="#" className="hover:text-secondary transition">
+                <FiFacebook />
               </a>
-              <a href="#" className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-accent transition">
-                <FaTwitter />
+              <a href="#" className="hover:text-secondary transition">
+                <FiTwitter />
               </a>
-              <a href="#" className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-accent transition">
-                <FaInstagram />
+              <a href="#" className="hover:text-secondary transition">
+                <FiInstagram />
               </a>
-              <a href="#" className="w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-accent transition">
-                <FaLinkedin />
+              <a href="#" className="hover:text-secondary transition">
+                <FiLinkedin />
               </a>
             </div>
           </div>
@@ -29,54 +32,71 @@ const Footer = () => {
           {/* Quick Links */}
           <div>
             <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
-            <ul className="space-y-2 text-gray-300">
-              <li><Link to="/" className="hover:text-primary transition">Home</Link></li>
-              <li><Link to="/products" className="hover:text-primary transition">Products</Link></li>
-              <li><Link to="/about" className="hover:text-primary transition">About Us</Link></li>
-              <li><Link to="/contact" className="hover:text-primary transition">Contact</Link></li>
-            </ul>
+            <nav className="space-y-2 text-gray-300">
+              <Link to="/" className="hover:text-secondary transition">
+                Home
+              </Link>
+              <Link to="/products" className="hover:text-secondary transition">
+                Products
+              </Link>
+              <Link to="/categories" className="hover:text-secondary transition">
+                Categories
+              </Link>
+              <Link to="/about" className="hover:text-secondary transition">
+                About Us
+              </Link>
+            </nav>
           </div>
 
           {/* Customer Service */}
           <div>
             <h4 className="text-lg font-semibold mb-4">Customer Service</h4>
-            <ul className="space-y-2 text-gray-300">
-              <li><a href="#" className="hover:text-primary transition">Shipping Info</a></li>
-              <li><a href="#" className="hover:text-primary transition">Returns</a></li>
-              <li><a href="#" className="hover:text-primary transition">FAQ</a></li>
-              <li><a href="#" className="hover:text-primary transition">Track Order</a></li>
-            </ul>
+            <nav className="space-y-2 text-gray-300">
+              <Link to="/contact" className="hover:text-secondary transition">
+                Contact Us
+              </Link>
+              <Link to="/shipping" className="hover:text-secondary transition">
+                Shipping Info
+              </Link>
+              <Link to="/returns" className="hover:text-secondary transition">
+                Returns
+              </Link>
+              <Link to="/faq" className="hover:text-secondary transition">
+                FAQ
+              </Link>
+            </nav>
           </div>
 
-          {/* Contact Info */}
+          {/* Newsletter */}
           <div>
-            <h4 className="text-lg font-semibold mb-4">Contact Us</h4>
-            <div className="space-y-3 text-gray-300">
-              <div className="flex items-center gap-2">
-                <FaPhone className="text-primary" />
-                <span>+91 (800) 123-4567</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <FaEnvelope className="text-primary" />
-                <span>support@shopverse.com</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <FaMapMarkerAlt className="text-primary" />
-                <span>New Delhi, India</span>
-              </div>
-            </div>
+            <h4 className="text-lg font-semibold mb-4">Newsletter</h4>
+            <p className="text-gray-300 mb-4">Subscribe for exclusive deals and updates.</p>
+            <form className="flex gap-2">
+              <input
+                type="email"
+                placeholder="Your email"
+                className="flex-1 px-3 py-2 rounded-lg bg-white text-dark outline-none"
+              />
+              <button className="px-4 py-2 bg-secondary rounded-lg hover:bg-red-600 transition">
+                Subscribe
+              </button>
+            </form>
           </div>
         </div>
 
         {/* Divider */}
-        <div className="border-t border-gray-700 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center text-gray-400 text-sm">
-            <p>&copy; 2024 ShopVerse. All rights reserved.</p>
-            <div className="flex justify-center gap-4">
-              <a href="#" className="hover:text-primary transition">Privacy Policy</a>
-              <a href="#" className="hover:text-primary transition">Terms of Service</a>
+        <div className="border-t border-gray-700 pt-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
+            <p>&copy; 2024 SHOPVERSE. All rights reserved.</p>
+            <div className="flex gap-4 justify-center">
+              <Link to="/privacy" className="hover:text-secondary transition">
+                Privacy Policy
+              </Link>
+              <Link to="/terms" className="hover:text-secondary transition">
+                Terms & Conditions
+              </Link>
             </div>
-            <p>Designed with ❤️ by ShopVerse Team</p>
+            <p className="text-right">Made with ❤️ by SHOPVERSE</p>
           </div>
         </div>
       </div>
