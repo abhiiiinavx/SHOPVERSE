@@ -1,186 +1,274 @@
-# ShopVerse
+# SHOPVERSE - Premium E-Commerce Platform
 
-A premium online shopping platform inspired by Amazon, Flipkart, Myntra, and Shopify.
+## Project Overview
 
-## 🚀 Features
+SHOPVERSE is an enterprise-level, production-ready Full Stack MERN E-Commerce Website inspired by Amazon, Flipkart, Myntra, and Shopify. It features a premium modern UI with advanced functionality including user authentication, product management, shopping cart, wishlist, orders, payments, and comprehensive admin dashboard.
 
-### Authentication
-- User Registration & Login
-- JWT Authentication
-- Role-based Access (Admin/User)
-- Forgot Password & Reset Password
-- Profile Management
-
-### Product Management
-- Browse Products by Categories
-- Advanced Search & Filters
-- Product Ratings & Reviews
-- Multiple Product Images
-- Stock Management
-- Wishlist
-
-### Shopping
-- Shopping Cart
-- Checkout Process
-- Coupon/Discount Codes
-- Multiple Payment Options (Razorpay, Stripe, COD)
-- Order History
-
-### Admin Dashboard
-- Product Management (Add, Edit, Delete)
-- Order Management
-- Customer Management
-- Analytics & Sales Reports
-- Inventory Management
-
-### UI/UX
-- Responsive Design (Mobile, Tablet, Desktop)
-- Dark Mode Support
-- Glassmorphism Design
-- Smooth Animations
-- Loading Skeletons
-- Modern Cards & Components
-
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
-- React.js (Vite)
-- Tailwind CSS
-- Redux Toolkit
-- React Router
-- Axios
-- Framer Motion
-- React Hook Form
-- React Icons
-- React Hot Toast
+- **React.js** (Vite) - Modern UI library
+- **Tailwind CSS** - Utility-first CSS framework
+- **React Router** - Client-side routing
+- **Redux Toolkit** - State management
+- **Axios** - HTTP client
+- **Framer Motion** - Animation library
+- **React Hook Form** - Form management
+- **React Icons** - Icon library
+- **React Hot Toast** - Notifications
 
 ### Backend
-- Node.js
-- Express.js
-- MongoDB & Mongoose
-- JWT Authentication
-- bcrypt Password Hashing
-- Multer & Cloudinary (Image Upload)
-- Nodemailer (Email Notifications)
-- Helmet (Security)
-- Morgan (Logging)
+- **Node.js** - JavaScript runtime
+- **Express.js** - Web framework
+- **MongoDB** - NoSQL database
+- **Mongoose** - ODM for MongoDB
+- **JWT** - Authentication
+- **bcrypt** - Password hashing
+- **Multer** - File upload
+- **Cloudinary** - Image hosting
+- **Nodemailer** - Email sending
+- **Helmet** - Security middleware
+- **Morgan** - Logging
+- **CORS** - Cross-origin requests
+- **Express Validator** - Input validation
 
-## 📁 Project Structure
+### Deployment
+- **Vercel** - Frontend deployment
+- **Render** - Backend deployment
+- **MongoDB Atlas** - Database hosting
+
+## Project Structure
 
 ```
-shopverse/
-├── client/                 # React Frontend
+SHOPVERSE/
+├── client/
+│   ├── public/
 │   ├── src/
-│   │   ├── components/    # Reusable Components
-│   │   ├── pages/         # Page Components
-│   │   ├── hooks/         # Custom Hooks
-│   │   ├── redux/         # Redux Store
-│   │   ├── utils/         # Utility Functions
-│   │   ├── styles/        # Global Styles
-│   │   ├── assets/        # Images, Icons
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── hooks/
+│   │   ├── redux/
+│   │   ├── context/
+│   │   ├── layouts/
+│   │   ├── assets/
+│   │   ├── utils/
 │   │   ├── App.jsx
-│   │   └── main.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
 │   ├── package.json
-│   └── vite.config.js
-├── server/                # Express Backend
-│   ├── models/            # MongoDB Models
-│   ├── controllers/       # Route Controllers
-│   ├── routes/            # API Routes
-│   ├── middleware/        # Custom Middleware
-│   ├── utils/             # Utility Functions
-│   ├── config/            # Configuration Files
+│   ├── vite.config.js
+│   └── tailwind.config.js
+├── server/
+│   ├── models/
+│   ├── controllers/
+│   ├── routes/
+│   ├── middleware/
+│   ├── utils/
+│   ├── config/
 │   ├── server.js
 │   └── package.json
 ├── .env.example
-└── README.md
+├── README.md
+└── .gitignore
 ```
 
-## 🚀 Getting Started
+## Features
+
+### Authentication
+- User Registration and Login
+- JWT Authentication
+- Password Hashing with bcrypt
+- Role-Based Access Control (Admin & User)
+- Protected Routes
+- Profile Management
+- Forgot & Reset Password
+
+### Product Management
+- Add, Edit, Delete Products
+- Multiple Image Upload
+- Category Management
+- Inventory Management
+- Product Specifications
+- Reviews and Ratings
+- Stock Management
+
+### Shopping
+- Shopping Cart
+- Wishlist
+- Product Search with Filters
+- Category & Brand Filtering
+- Price Range Filtering
+- Advanced Sorting
+- Product Recommendations
+
+### Checkout & Payment
+- Secure Checkout Process
+- Multiple Payment Methods (COD, Razorpay, Stripe)
+- Order Summary
+- Shipping Details
+- Tax Calculation
+- Coupon/Discount Management
+
+### Orders
+- Place Orders
+- Order Tracking
+- Order History
+- Invoice Generation
+- Order Status Updates
+- Cancel Orders
+
+### Admin Dashboard
+- Sales Analytics
+- Revenue Charts
+- Order Management
+- Customer Management
+- Product Management
+- User Management
+- Category Management
+- Inventory Management
+- Coupon Management
+- Review Management
+- Settings
+
+### Additional Features
+- Dark/Light Mode
+- Responsive Design (Mobile, Tablet, Desktop)
+- Email Notifications
+- Product Comparison
+- Recently Viewed Products
+- Glassmorphism Design
+- Smooth Animations
+- Loading Skeletons
+- SEO Friendly URLs
+- PWA Support
+- Offline Support
+
+## Installation
 
 ### Prerequisites
-- Node.js (v14+)
-- MongoDB
+- Node.js (v16 or higher)
 - npm or yarn
+- MongoDB Atlas Account
+- Cloudinary Account
+- Razorpay/Stripe Account (Optional)
 
-### Installation
+### Backend Setup
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/shopverse.git
-cd shopverse
-```
-
-2. Install backend dependencies:
+1. Navigate to server directory:
 ```bash
 cd server
+```
+
+2. Install dependencies:
+```bash
 npm install
 ```
 
-3. Install frontend dependencies:
+3. Create `.env` file:
 ```bash
-cd ../client
+cp ../.env.example .env
+```
+
+4. Update `.env` with your configuration
+
+5. Start the server:
+```bash
+npm run dev
+```
+
+### Frontend Setup
+
+1. Navigate to client directory:
+```bash
+cd client
+```
+
+2. Install dependencies:
+```bash
 npm install
 ```
 
-### Environment Setup
-
-1. Create `.env` file in `server/` directory:
-```
-PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret_key
-CLOUDINARY_NAME=your_cloudinary_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-SMTP_HOST=your_email_host
-SMTP_PORT=587
-SMTP_USER=your_email
-SMTP_PASS=your_password
-RAZORPAY_KEY_ID=your_razorpay_key
-RAZORPAY_KEY_SECRET=your_razorpay_secret
-STRIPE_PUBLIC_KEY=your_stripe_key
-STRIPE_SECRET_KEY=your_stripe_secret
-```
-
-2. Create `.env` file in `client/` directory:
-```
-VITE_API_URL=http://localhost:5000/api
-```
-
-### Running the Application
-
-1. Start the backend server:
+3. Create `.env` file:
 ```bash
+echo "VITE_API_URL=http://localhost:5000/api" > .env.local
+```
+
+4. Start the development server:
+```bash
+npm run dev
+```
+
+## Running the Project
+
+### Development Mode
+
+```bash
+# Terminal 1 - Backend
 cd server
-npm start
-```
+npm run dev
 
-2. In a new terminal, start the frontend:
-```bash
+# Terminal 2 - Frontend
 cd client
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`
+### Production Build
 
-## 📚 API Documentation
+```bash
+# Backend
+cd server
+npm run start
+
+# Frontend
+cd client
+npm run build
+npm run preview
+```
+
+## Environment Variables
+
+See `.env.example` for all required environment variables.
+
+### Backend Variables
+- `PORT` - Server port (default: 5000)
+- `MONGODB_URI` - MongoDB connection string
+- `JWT_SECRET` - JWT secret key
+- `JWT_EXPIRE` - JWT expiration time
+- `CLOUDINARY_*` - Cloudinary credentials
+- `SMTP_*` - Email configuration
+- `RAZORPAY_*` - Razorpay payment credentials
+- `STRIPE_*` - Stripe payment credentials
+
+### Frontend Variables
+- `VITE_API_URL` - Backend API URL
+
+## MongoDB Setup
+
+1. Create account on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a cluster
+3. Get connection string
+4. Add connection string to `.env` file as `MONGODB_URI`
+
+## API Documentation
 
 ### Authentication Endpoints
-- `POST /api/auth/register` - Register new user
+- `POST /api/auth/register` - Register user
 - `POST /api/auth/login` - Login user
 - `POST /api/auth/logout` - Logout user
 - `POST /api/auth/forgot-password` - Request password reset
-- `POST /api/auth/reset-password` - Reset password
+- `POST /api/auth/reset-password/:token` - Reset password
+- `GET /api/auth/me` - Get current user
 
 ### Product Endpoints
 - `GET /api/products` - Get all products
-- `GET /api/products/:id` - Get product details
+- `GET /api/products/:id` - Get single product
 - `POST /api/products` - Create product (Admin)
 - `PUT /api/products/:id` - Update product (Admin)
 - `DELETE /api/products/:id` - Delete product (Admin)
+- `GET /api/products/search/query` - Search products
 
 ### Cart Endpoints
-- `GET /api/cart` - Get user cart
+- `GET /api/cart` - Get cart
 - `POST /api/cart` - Add to cart
 - `PUT /api/cart/:id` - Update cart item
 - `DELETE /api/cart/:id` - Remove from cart
@@ -189,45 +277,90 @@ The application will be available at `http://localhost:5173`
 - `POST /api/orders` - Create order
 - `GET /api/orders` - Get user orders
 - `GET /api/orders/:id` - Get order details
-- `PUT /api/orders/:id` - Update order status (Admin)
+- `PUT /api/orders/:id/cancel` - Cancel order
+- `GET /api/orders/:id/invoice` - Download invoice
 
-## 🔐 Security Features
+### Category Endpoints
+- `GET /api/categories` - Get all categories
+- `POST /api/categories` - Create category (Admin)
+- `PUT /api/categories/:id` - Update category (Admin)
+- `DELETE /api/categories/:id` - Delete category (Admin)
 
-- JWT Token Authentication
-- bcrypt Password Hashing
-- Helmet.js for HTTP Headers
-- CORS Protection
-- Input Validation & Sanitization
-- Rate Limiting
-- Protected API Routes
+### Review Endpoints
+- `GET /api/reviews/:productId` - Get product reviews
+- `POST /api/reviews` - Create review
+- `PUT /api/reviews/:id` - Update review
+- `DELETE /api/reviews/:id` - Delete review
 
-## 📦 Deployment
+### Wishlist Endpoints
+- `GET /api/wishlist` - Get wishlist
+- `POST /api/wishlist` - Add to wishlist
+- `DELETE /api/wishlist/:id` - Remove from wishlist
+
+### Coupon Endpoints
+- `GET /api/coupons` - Get all coupons
+- `POST /api/coupons/validate` - Validate coupon
+- `POST /api/coupons` - Create coupon (Admin)
+- `PUT /api/coupons/:id` - Update coupon (Admin)
+- `DELETE /api/coupons/:id` - Delete coupon (Admin)
+
+### Dashboard Endpoints
+- `GET /api/dashboard/stats` - Get dashboard statistics
+- `GET /api/dashboard/sales` - Get sales data
+- `GET /api/dashboard/revenue` - Get revenue data
+
+## Deployment
 
 ### Frontend (Vercel)
-1. Push to GitHub
+1. Push code to GitHub
 2. Connect repository to Vercel
-3. Deploy
+3. Set environment variables
+4. Deploy
 
-### Backend (Render/Railway)
-1. Push to GitHub
+### Backend (Render)
+1. Push code to GitHub
 2. Connect repository to Render
 3. Set environment variables
 4. Deploy
 
 ### Database (MongoDB Atlas)
-1. Create MongoDB Atlas account
-2. Create cluster
-3. Get connection string
-4. Add to `.env` file
+1. Create account and cluster
+2. Configure network access
+3. Create database user
+4. Get connection string
+5. Add to backend environment variables
 
-## 📄 License
+## Security
+- Helmet for HTTP headers
+- Rate limiting
+- Input validation
+- JWT authentication
+- Password hashing with bcrypt
+- Protected API routes
+- CORS configuration
+- SQL injection prevention
+- XSS protection
 
-MIT License
+## Browser Support
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
 
-## 👨‍💻 Author
+## Performance
+- Image optimization
+- Code splitting
+- Lazy loading
+- Caching strategies
+- CDN integration
+- Minification
+- Compression
 
-Your Name
+## License
+MIT
 
-## 🤝 Contributing
+## Contributing
+Contributions are welcome! Please follow the code style and create pull requests.
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## Support
+For issues and questions, please create an issue on GitHub.
