@@ -1,109 +1,153 @@
 import User from '../models/User.js';
+import { sendResponse, sendError } from '../utils/helpers.js';
 import cloudinary from '../config/cloudinary.js';
 
-export const getProfile = async (req, res) => {
+const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
+
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendError(res, 404, 'User not found');
     }
-    res.json({ success: true, user });
+
+    sendResponse(res, 200, true, 'User profile fetched successfully', user);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const updateProfile = async (req, res) => {
+const updateUserProfile = async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, email, phone } = req.body;
 
-    let user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { name, email, phone },
+      { new: true, runValidators: true }
+    );
+
+    sendResponse(res, 200, true, 'Profile updated successfully', user);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'No file uploaded');
     }
 
-    if (name) user.name = name;
-    if (phone) user.phone = phone;
-    if (address) user.address = address;
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'shopverse/avatars',
+    });
 
-    if (req.file) {
-      if (user.avatar && !user.avatar.includes('placeholder')) {
-        try {
-          const publicId = user.avatar.split('/').pop().split('.')[0];
-          await cloudinary.uploader.destroy(`shopverse/avatars/${publicId}`);
-        } catch (e) {
-          console.error('Error deleting old avatar:', e);
-        }
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'shopverse/avatars' },
-          (error, result) => error ? reject(error) : resolve(result)
-        );
-        uploadStream.end(req.file.buffer);
-      });
-      user.avatar = result.secure_url;
-    }
-
-    user.updatedAt = Date.now();
+    const user = await User.findById(req.user.id);
+    user.avatar = result.secure_url;
     await user.save();
 
-    res.json({ success: true, message: 'Profile updated', user });
+    sendResponse(res, 200, true, 'Avatar uploaded successfully', { avatar: result.secure_url });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getAllUsers = async (req, res) => {
+const addAddress = async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
-    res.json({ success: true, users });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+    const { street, city, state, zipCode, country, isDefault } = req.body;
 
-export const getUserById = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json({ success: true, user });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const updateUserStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    user.status = status;
+    const user = await User.findById(req.user.id);
+    user.addresses.push({
+      street,
+      city,
+      state,
+      zipCode,
+      country,
+      isDefault,
+    });
     await user.save();
 
-    res.json({ success: true, message: 'User status updated', user });
+    sendResponse(res, 200, true, 'Address added successfully', user);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const deleteUser = async (req, res) => {
+const updateAddress = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    const { addressId } = req.params;
+    const { street, city, state, zipCode, country, isDefault } = req.body;
+
+    const user = await User.findById(req.user.id);
+    const address = user.addresses.id(addressId);
+
+    if (!address) {
+      return sendError(res, 404, 'Address not found');
     }
 
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'User deleted' });
+    Object.assign(address, { street, city, state, zipCode, country, isDefault });
+    await user.save();
+
+    sendResponse(res, 200, true, 'Address updated successfully', user);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
+};
+
+const deleteAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { addresses: { _id: addressId } } },
+      { new: true }
+    );
+
+    sendResponse(res, 200, true, 'Address deleted successfully', user);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+const getAllUsers = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return sendError(res, 403, 'Not authorized');
+    }
+
+    const users = await User.find({}).sort({ createdAt: -1 });
+    sendResponse(res, 200, true, 'Users fetched successfully', users);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+const getUserById = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.id !== req.params.id) {
+      return sendError(res, 403, 'Not authorized');
+    }
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    sendResponse(res, 200, true, 'User fetched successfully', user);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+export {
+  getUserProfile,
+  updateUserProfile,
+  uploadAvatar,
+  addAddress,
+  updateAddress,
+  deleteAddress,
+  getAllUsers,
+  getUserById,
 };

@@ -1,253 +1,209 @@
 import Product from '../models/Product.js';
 import cloudinary from '../config/cloudinary.js';
-import Category from '../models/Category.js';
+import { sendResponse, sendError, getDiscountedPrice } from '../utils/helpers.js';
 
-export const getAllProducts = async (req, res) => {
+const getAllProducts = async (req, res) => {
   try {
-    const { category, brand, minPrice, maxPrice, search, sort, page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 12, category, brand, minPrice, maxPrice, search } = req.query;
     const skip = (page - 1) * limit;
 
-    let query = {};
+    const filter = { isActive: true };
 
+    if (category) filter.category = category;
+    if (brand) filter.brand = brand;
     if (search) {
-      query.$text = { $search: search };
+      filter.$text = { $search: search };
     }
-
-    if (category) {
-      query.category = category;
-    }
-
-    if (brand) {
-      query.brand = brand;
-    }
-
     if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = parseFloat(minPrice);
-      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+      filter.price = {};
+      if (minPrice) filter.price.$gte = minPrice;
+      if (maxPrice) filter.price.$lte = maxPrice;
     }
 
-    let sortOption = {};
-    if (sort) {
-      switch (sort) {
-        case 'price-low':
-          sortOption = { price: 1 };
-          break;
-        case 'price-high':
-          sortOption = { price: -1 };
-          break;
-        case 'newest':
-          sortOption = { createdAt: -1 };
-          break;
-        case 'rating':
-          sortOption = { rating: -1 };
-          break;
-        default:
-          sortOption = { createdAt: -1 };
-      }
-    }
-
-    const total = await Product.countDocuments(query);
-    const products = await Product.find(query)
+    const products = await Product.find(filter)
       .populate('category')
-      .sort(sortOption)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
+    const total = await Product.countDocuments(filter);
+
+    sendResponse(res, 200, true, 'Products fetched successfully', {
       products,
       pagination: {
-        total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
-      }
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getProductById = async (req, res) => {
+const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate('category')
-      .populate('reviews');
+      .populate('seller', 'name email');
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return sendError(res, 404, 'Product not found');
     }
 
-    res.json({ success: true, product });
+    sendResponse(res, 200, true, 'Product fetched successfully', product);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const createProduct = async (req, res) => {
+const createProduct = async (req, res) => {
   try {
-    const { name, description, price, discountPrice, category, brand, stock, sku, colors, sizes, specifications } = req.body;
+    const { name, description, price, category, brand, stock, specifications, colors, sizes } = req.body;
 
-    if (!name || !description || !price || !category || !stock) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const images = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        try {
-          const result = await cloudinary.uploader.upload_stream(
-            { folder: 'shopverse/products', resource_type: 'auto' },
-            async (error, result) => {
-              if (error) throw error;
-              images.push({
-                public_id: result.public_id,
-                url: result.secure_url
-              });
-            }
-          );
-          result.end(file.buffer);
-        } catch (uploadError) {
-          console.error('Upload error:', uploadError);
-        }
-      }
-    }
-
-    const product = await Product.create({
+    const productData = {
       name,
       description,
       price,
-      discountPrice: discountPrice || price,
       category,
       brand,
       stock,
-      sku,
-      colors: colors ? JSON.parse(colors) : [],
-      sizes: sizes ? JSON.parse(sizes) : [],
-      specifications: specifications ? JSON.parse(specifications) : {},
-      images,
-      seller: req.user.id
-    });
+      specifications,
+      colors,
+      sizes,
+      seller: req.user.id,
+    };
 
-    res.status(201).json({ success: true, message: 'Product created', product });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const updateProduct = async (req, res) => {
-  try {
-    const { name, description, price, discountPrice, category, brand, stock, sku, colors, sizes, specifications } = req.body;
-
-    let product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    if (product.seller.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to update this product' });
-    }
-
-    if (name) product.name = name;
-    if (description) product.description = description;
-    if (price) product.price = price;
-    if (discountPrice) product.discountPrice = discountPrice;
-    if (category) product.category = category;
-    if (brand) product.brand = brand;
-    if (stock !== undefined) product.stock = stock;
-    if (sku) product.sku = sku;
-    if (colors) product.colors = JSON.parse(colors);
-    if (sizes) product.sizes = JSON.parse(sizes);
-    if (specifications) product.specifications = JSON.parse(specifications);
-
+    // Handle image uploads
     if (req.files && req.files.length > 0) {
-      for (const image of product.images) {
-        await cloudinary.uploader.destroy(image.public_id);
-      }
-      product.images = [];
-
+      const images = [];
       for (const file of req.files) {
-        const result = await new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: 'shopverse/products' },
-            (error, result) => error ? reject(error) : resolve(result)
-          );
-          uploadStream.end(file.buffer);
-        });
-        product.images.push({
-          public_id: result.public_id,
-          url: result.secure_url
-        });
+        try {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: 'shopverse/products',
+          });
+          images.push({
+            url: result.secure_url,
+            publicId: result.public_id,
+          });
+        } catch (error) {
+          console.error('Cloudinary upload error:', error);
+        }
       }
+      productData.images = images;
     }
 
-    product.updatedAt = Date.now();
-    await product.save();
+    const product = await Product.create(productData);
+    await product.populate('category');
 
-    res.json({ success: true, message: 'Product updated', product });
+    sendResponse(res, 201, true, 'Product created successfully', product);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const deleteProduct = async (req, res) => {
+const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
+
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return sendError(res, 404, 'Product not found');
     }
 
     if (product.seller.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to delete this product' });
+      return sendError(res, 403, 'Not authorized to update this product');
     }
 
-    for (const image of product.images) {
-      await cloudinary.uploader.destroy(image.public_id);
+    Object.assign(product, req.body);
+    await product.save();
+    await product.populate('category');
+
+    sendResponse(res, 200, true, 'Product updated successfully', product);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+const deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return sendError(res, 404, 'Product not found');
+    }
+
+    if (product.seller.toString() !== req.user.id && req.user.role !== 'admin') {
+      return sendError(res, 403, 'Not authorized to delete this product');
+    }
+
+    // Delete images from cloudinary
+    if (product.images.length > 0) {
+      for (const image of product.images) {
+        await cloudinary.uploader.destroy(image.publicId);
+      }
     }
 
     await Product.findByIdAndDelete(req.params.id);
-
-    res.json({ success: true, message: 'Product deleted' });
+    sendResponse(res, 200, true, 'Product deleted successfully');
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getFeaturedProducts = async (req, res) => {
+const getFeaturedProducts = async (req, res) => {
   try {
-    const products = await Product.find({ featured: true })
+    const products = await Product.find({ isFeatured: true, isActive: true })
       .populate('category')
-      .limit(10);
+      .limit(8);
 
-    res.json({ success: true, products });
+    sendResponse(res, 200, true, 'Featured products fetched successfully', products);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getTrendingProducts = async (req, res) => {
+const getTopRatedProducts = async (req, res) => {
   try {
-    const products = await Product.find()
+    const products = await Product.find({ isActive: true })
       .populate('category')
-      .sort({ numReviews: -1 })
-      .limit(10);
+      .sort({ rating: -1 })
+      .limit(8);
 
-    res.json({ success: true, products });
+    sendResponse(res, 200, true, 'Top rated products fetched successfully', products);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getNewArrivals = async (req, res) => {
+const searchProducts = async (req, res) => {
   try {
-    const products = await Product.find()
-      .populate('category')
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const { query } = req.query;
 
-    res.json({ success: true, products });
+    if (!query) {
+      return sendError(res, 400, 'Search query is required');
+    }
+
+    const products = await Product.find(
+      { $text: { $search: query }, isActive: true },
+      { score: { $meta: 'textScore' } }
+    )
+      .sort({ score: { $meta: 'textScore' } })
+      .populate('category');
+
+    sendResponse(res, 200, true, 'Search results fetched successfully', products);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
+};
+
+export {
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getFeaturedProducts,
+  getTopRatedProducts,
+  searchProducts,
 };

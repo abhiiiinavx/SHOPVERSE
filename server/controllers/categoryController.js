@@ -1,109 +1,90 @@
 import Category from '../models/Category.js';
-import cloudinary from '../config/cloudinary.js';
+import { sendResponse, sendError } from '../utils/helpers.js';
 
-export const getAllCategories = async (req, res) => {
+const getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find().populate('parent');
-    res.json({ success: true, categories });
+    const categories = await Category.find({ isActive: true });
+    sendResponse(res, 200, true, 'Categories fetched successfully', categories);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getCategoryById = async (req, res) => {
+const getCategoryById = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id).populate('parent');
+    const category = await Category.findById(req.params.id);
+
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return sendError(res, 404, 'Category not found');
     }
-    res.json({ success: true, category });
+
+    sendResponse(res, 200, true, 'Category fetched successfully', category);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const createCategory = async (req, res) => {
+const createCategory = async (req, res) => {
   try {
-    const { name, description, parent } = req.body;
+    const { name, description, image, icon } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ message: 'Category name is required' });
+    const categoryExists = await Category.findOne({ name });
+    if (categoryExists) {
+      return sendError(res, 400, 'Category already exists');
     }
 
-    let image = {};
-    if (req.file) {
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'shopverse/categories' },
-          (error, result) => error ? reject(error) : resolve(result)
-        );
-        uploadStream.end(req.file.buffer);
-      });
-      image = { public_id: result.public_id, url: result.secure_url };
-    }
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     const category = await Category.create({
       name,
-      slug: name.toLowerCase().replace(/\s+/g, '-'),
       description,
-      parent: parent || null,
-      image
+      image,
+      icon,
+      slug,
     });
 
-    res.status(201).json({ success: true, message: 'Category created', category });
+    sendResponse(res, 201, true, 'Category created successfully', category);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const updateCategory = async (req, res) => {
+const updateCategory = async (req, res) => {
   try {
-    const { name, description, parent } = req.body;
-    let category = await Category.findById(req.params.id);
+    const category = await Category.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return sendError(res, 404, 'Category not found');
     }
 
-    if (name) category.name = name;
-    if (description) category.description = description;
-    if (parent) category.parent = parent;
-
-    if (req.file) {
-      if (category.image && category.image.public_id) {
-        await cloudinary.uploader.destroy(category.image.public_id);
-      }
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'shopverse/categories' },
-          (error, result) => error ? reject(error) : resolve(result)
-        );
-        uploadStream.end(req.file.buffer);
-      });
-      category.image = { public_id: result.public_id, url: result.secure_url };
-    }
-
-    await category.save();
-    res.json({ success: true, message: 'Category updated', category });
+    sendResponse(res, 200, true, 'Category updated successfully', category);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const deleteCategory = async (req, res) => {
+const deleteCategory = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const category = await Category.findByIdAndDelete(req.params.id);
+
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return sendError(res, 404, 'Category not found');
     }
 
-    if (category.image && category.image.public_id) {
-      await cloudinary.uploader.destroy(category.image.public_id);
-    }
-
-    await Category.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Category deleted' });
+    sendResponse(res, 200, true, 'Category deleted successfully');
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
+};
+
+export {
+  getAllCategories,
+  getCategoryById,
+  createCategory,
+  updateCategory,
+  deleteCategory,
 };

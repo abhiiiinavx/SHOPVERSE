@@ -1,130 +1,113 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
-import Review from '../models/Review.js';
+import { sendResponse, sendError } from '../utils/helpers.js';
 
-export const getDashboardStats = async (req, res) => {
+const getDashboardStats = async (req, res) => {
   try {
     const totalOrders = await Order.countDocuments();
-    const totalUsers = await User.countDocuments({ role: 'user' });
+    const totalUsers = await User.countDocuments();
     const totalProducts = await Product.countDocuments();
-    const totalReviews = await Review.countDocuments();
 
-    const orders = await Order.find().select('total createdAt orderStatus');
-    const totalRevenue = orders.reduce((acc, order) => acc + order.total, 0);
+    const completedOrders = await Order.countDocuments({ orderStatus: 'delivered' });
+    const totalRevenue = await Order.aggregate([
+      { $match: { paymentStatus: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$totalPrice' } } },
+    ]);
 
-    const recentOrders = await Order.find()
-      .populate('user', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(10);
-
-    const topProducts = await Product.find()
-      .sort({ numReviews: -1 })
-      .limit(5);
-
-    const orderStatuses = {};
-    orders.forEach(order => {
-      orderStatuses[order.orderStatus] = (orderStatuses[order.orderStatus] || 0) + 1;
+    sendResponse(res, 200, true, 'Dashboard stats fetched successfully', {
+      totalOrders,
+      totalUsers,
+      totalProducts,
+      completedOrders,
+      totalRevenue: totalRevenue[0]?.total || 0,
     });
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
 
-    res.json({
-      success: true,
-      stats: {
-        totalOrders,
-        totalUsers,
-        totalProducts,
-        totalReviews,
-        totalRevenue
+const getSalesData = async (req, res) => {
+  try {
+    const { period = '7days' } = req.query;
+
+    let dateFilter = {};
+    const now = new Date();
+
+    if (period === '7days') {
+      dateFilter = { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) };
+    } else if (period === '30days') {
+      dateFilter = { $gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
+    } else if (period === '90days') {
+      dateFilter = { $gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) };
+    }
+
+    const salesData = await Order.aggregate([
+      {
+        $match: {
+          createdAt: dateFilter,
+          paymentStatus: 'completed',
+        },
       },
-      recentOrders,
-      topProducts,
-      orderStatuses
-    });
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          totalSales: { $sum: '$totalPrice' },
+          totalOrders: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    sendResponse(res, 200, true, 'Sales data fetched successfully', salesData);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getSalesChart = async (req, res) => {
+const getRevenueData = async (req, res) => {
   try {
-    const orders = await Order.find({ paymentStatus: 'completed' }).select('total createdAt');
+    const revenueData = await Order.aggregate([
+      { $match: { paymentStatus: 'completed' } },
+      {
+        $group: {
+          _id: '$paymentMethod',
+          revenue: { $sum: '$totalPrice' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
 
-    const chartData = {};
-    orders.forEach(order => {
-      const date = order.createdAt.toISOString().split('T')[0];
-      chartData[date] = (chartData[date] || 0) + order.total;
-    });
-
-    const labels = Object.keys(chartData).sort();
-    const data = labels.map(label => chartData[label]);
-
-    res.json({ success: true, labels, data });
+    sendResponse(res, 200, true, 'Revenue data fetched successfully', revenueData);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getRevenueChart = async (req, res) => {
+const getTopProducts = async (req, res) => {
   try {
-    const orders = await Order.find({ paymentStatus: 'completed' }).select('total createdAt');
+    const topProducts = await Order.aggregate([
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.product',
+          totalSold: { $sum: '$items.quantity' },
+        },
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 10 },
+      { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'product' } },
+    ]);
 
-    const months = {};
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    orders.forEach(order => {
-      const month = order.createdAt.getMonth();
-      const monthKey = monthNames[month];
-      months[monthKey] = (months[monthKey] || 0) + order.total;
-    });
-
-    const labels = monthNames;
-    const data = labels.map(month => months[month] || 0);
-
-    res.json({ success: true, labels, data });
+    sendResponse(res, 200, true, 'Top products fetched successfully', topProducts);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getTopSellingProducts = async (req, res) => {
-  try {
-    const orders = await Order.find().populate('items.product');
-
-    const productSales = {};
-    orders.forEach(order => {
-      order.items.forEach(item => {
-        const productId = item.product._id.toString();
-        productSales[productId] = (productSales[productId] || 0) + item.quantity;
-      });
-    });
-
-    const topProducts = await Product.find()
-      .sort({ 'sales': -1 })
-      .limit(10);
-
-    res.json({ success: true, products: topProducts });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const getCustomerMetrics = async (req, res) => {
-  try {
-    const totalCustomers = await User.countDocuments({ role: 'user' });
-    const activeCustomers = await User.countDocuments({ status: 'active' });
-    const orders = await Order.find();
-    const avgOrderValue = orders.length > 0 ? orders.reduce((acc, o) => acc + o.total, 0) / orders.length : 0;
-
-    res.json({
-      success: true,
-      metrics: {
-        totalCustomers,
-        activeCustomers,
-        avgOrderValue: avgOrderValue.toFixed(2),
-        totalOrders: orders.length
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+export {
+  getDashboardStats,
+  getSalesData,
+  getRevenueData,
+  getTopProducts,
 };

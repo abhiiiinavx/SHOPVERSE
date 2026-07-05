@@ -1,115 +1,117 @@
 import Coupon from '../models/Coupon.js';
+import { sendResponse, sendError } from '../utils/helpers.js';
 
-export const getAllCoupons = async (req, res) => {
+const getAllCoupons = async (req, res) => {
   try {
-    const coupons = await Coupon.find({ active: true }).sort({ createdAt: -1 });
-    res.json({ success: true, coupons });
+    const coupons = await Coupon.find({ isActive: true });
+    sendResponse(res, 200, true, 'Coupons fetched successfully', coupons);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const validateCoupon = async (req, res) => {
+const validateCoupon = async (req, res) => {
   try {
-    const { code, amount } = req.body;
+    const { code, totalAmount } = req.body;
 
-    const coupon = await Coupon.findOne({ code: code.toUpperCase(), active: true });
+    const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
+
     if (!coupon) {
-      return res.status(404).json({ message: 'Coupon not found' });
+      return sendError(res, 404, 'Coupon not found or expired');
     }
 
-    if (coupon.endDate && coupon.endDate < new Date()) {
-      return res.status(400).json({ message: 'Coupon has expired' });
+    if (new Date() > coupon.validTill) {
+      return sendError(res, 400, 'Coupon has expired');
     }
 
-    if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-      return res.status(400).json({ message: 'Coupon usage limit exceeded' });
+    if (totalAmount < coupon.minPurchaseAmount) {
+      return sendError(
+        res,
+        400,
+        `Minimum purchase amount of Rs. ${coupon.minPurchaseAmount} required`
+      );
     }
 
-    if (amount < coupon.minPurchase) {
-      return res.status(400).json({
-        message: `Minimum purchase of ₹${coupon.minPurchase} required`
-      });
+    if (coupon.maxUsageCount && coupon.currentUsageCount >= coupon.maxUsageCount) {
+      return sendError(res, 400, 'Coupon usage limit exceeded');
     }
 
     let discount = 0;
     if (coupon.discountType === 'percentage') {
-      discount = (amount * coupon.discountValue) / 100;
-      if (coupon.maxDiscount) {
-        discount = Math.min(discount, coupon.maxDiscount);
-      }
+      discount = (totalAmount * coupon.discountValue) / 100;
     } else {
       discount = coupon.discountValue;
     }
 
-    res.json({
-      success: true,
+    sendResponse(res, 200, true, 'Coupon is valid', {
       coupon,
-      discount
+      discount,
+      finalAmount: totalAmount - discount,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const createCoupon = async (req, res) => {
+const createCoupon = async (req, res) => {
   try {
-    const { code, description, discountType, discountValue, maxDiscount, minPurchase, maxUses, startDate, endDate } = req.body;
+    const { code, discountValue, discountType, validTill } = req.body;
+
+    const couponExists = await Coupon.findOne({ code: code.toUpperCase() });
+    if (couponExists) {
+      return sendError(res, 400, 'Coupon already exists');
+    }
 
     const coupon = await Coupon.create({
       code: code.toUpperCase(),
-      description,
-      discountType,
       discountValue,
-      maxDiscount,
-      minPurchase: minPurchase || 0,
-      maxUses,
-      startDate,
-      endDate
+      discountType,
+      validTill,
+      createdBy: req.user.id,
     });
 
-    res.status(201).json({ success: true, message: 'Coupon created', coupon });
+    sendResponse(res, 201, true, 'Coupon created successfully', coupon);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const updateCoupon = async (req, res) => {
+const updateCoupon = async (req, res) => {
   try {
-    const { description, discountType, discountValue, maxDiscount, minPurchase, maxUses, startDate, endDate, active } = req.body;
+    const coupon = await Coupon.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
 
-    let coupon = await Coupon.findById(req.params.id);
     if (!coupon) {
-      return res.status(404).json({ message: 'Coupon not found' });
+      return sendError(res, 404, 'Coupon not found');
     }
 
-    if (description) coupon.description = description;
-    if (discountType) coupon.discountType = discountType;
-    if (discountValue) coupon.discountValue = discountValue;
-    if (maxDiscount) coupon.maxDiscount = maxDiscount;
-    if (minPurchase !== undefined) coupon.minPurchase = minPurchase;
-    if (maxUses) coupon.maxUses = maxUses;
-    if (startDate) coupon.startDate = startDate;
-    if (endDate) coupon.endDate = endDate;
-    if (active !== undefined) coupon.active = active;
-
-    await coupon.save();
-    res.json({ success: true, message: 'Coupon updated', coupon });
+    sendResponse(res, 200, true, 'Coupon updated successfully', coupon);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const deleteCoupon = async (req, res) => {
+const deleteCoupon = async (req, res) => {
   try {
-    const coupon = await Coupon.findById(req.params.id);
+    const coupon = await Coupon.findByIdAndDelete(req.params.id);
+
     if (!coupon) {
-      return res.status(404).json({ message: 'Coupon not found' });
+      return sendError(res, 404, 'Coupon not found');
     }
 
-    await Coupon.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Coupon deleted' });
+    sendResponse(res, 200, true, 'Coupon deleted successfully');
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
+};
+
+export {
+  getAllCoupons,
+  validateCoupon,
+  createCoupon,
+  updateCoupon,
+  deleteCoupon,
 };

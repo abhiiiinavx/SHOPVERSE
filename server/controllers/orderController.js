@@ -1,186 +1,221 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
-import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
-import { sendEmail } from '../config/nodemailer.js';
+import Product from '../models/Product.js';
+import { sendResponse, sendError, calculateTax, calculateShipping } from '../utils/helpers.js';
+import Razorpay from 'razorpay';
+import Stripe from 'stripe';
 
-export const createOrder = async (req, res) => {
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, billingAddress, paymentMethod, couponCode } = req.body;
+    const { items, shippingAddress, billingAddress, paymentMethod, couponCode } = req.body;
 
-    let cart = await Cart.findOne({ user: req.user.id }).populate('items.product');
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ message: 'Cart is empty' });
+    if (!items || items.length === 0) {
+      return sendError(res, 400, 'Order items are required');
     }
 
-    const items = cart.items.map(item => ({
-      product: item.product._id,
-      name: item.product.name,
-      image: item.product.images[0]?.url,
-      price: item.price,
-      quantity: item.quantity,
-      color: item.color,
-      size: item.size
-    }));
+    let subtotal = 0;
+    const processedItems = [];
 
-    let subtotal = cart.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+      if (!product) {
+        return sendError(res, 404, `Product ${item.productId} not found`);
+      }
+
+      if (product.stock < item.quantity) {
+        return sendError(res, 400, `Insufficient stock for ${product.name}`);
+      }
+
+      const itemPrice = product.discountPrice || product.price;
+      subtotal += itemPrice * item.quantity;
+
+      processedItems.push({
+        product: product._id,
+        quantity: item.quantity,
+        price: itemPrice,
+      });
+
+      // Update product stock
+      product.stock -= item.quantity;
+      await product.save();
+    }
+
     let discount = 0;
-    let coupon = null;
-
     if (couponCode) {
-      const validCoupon = await Coupon.findOne({ code: couponCode, active: true });
-      if (validCoupon) {
-        if (validCoupon.endDate && validCoupon.endDate < new Date()) {
-          return res.status(400).json({ message: 'Coupon has expired' });
-        }
-        if (subtotal < validCoupon.minPurchase) {
-          return res.status(400).json({ message: `Minimum purchase of ${validCoupon.minPurchase} required` });
-        }
-        if (validCoupon.discountType === 'percentage') {
-          discount = (subtotal * validCoupon.discountValue) / 100;
-          if (validCoupon.maxDiscount) {
-            discount = Math.min(discount, validCoupon.maxDiscount);
-          }
+      const coupon = await Coupon.findOne({ code: couponCode });
+      if (coupon && new Date() < coupon.validTill) {
+        if (coupon.discountType === 'percentage') {
+          discount = (subtotal * coupon.discountValue) / 100;
         } else {
-          discount = validCoupon.discountValue;
+          discount = coupon.discountValue;
         }
-        coupon = validCoupon._id;
       }
     }
 
-    const tax = subtotal * 0.18; // 18% GST
-    const shipping = 50; // Fixed shipping
-    const total = subtotal + tax + shipping - discount;
+    const tax = parseFloat(calculateTax(subtotal));
+    const shippingCost = calculateShipping(0);
+    const totalPrice = subtotal + tax + shippingCost - discount;
 
     const order = await Order.create({
       user: req.user.id,
-      items,
+      items: processedItems,
       shippingAddress,
       billingAddress,
       paymentMethod,
       subtotal,
       tax,
-      shipping,
-      discount,
-      total,
-      coupon
+      shippingCost,
+      discount: {
+        code: couponCode,
+        amount: discount,
+      },
+      totalPrice,
+      orderStatus: 'pending',
     });
 
-    // Update coupon usage
-    if (coupon) {
-      await Coupon.findByIdAndUpdate(
-        coupon,
-        {
-          $inc: { usedCount: 1 },
-          $push: { usedBy: { user: req.user.id, usedAt: new Date() } }
-        }
-      );
-    }
+    // Clear user's cart
+    await Cart.findOneAndUpdate({ user: req.user.id }, { items: [], totalPrice: 0 });
 
-    // Clear cart
-    await Cart.findOneAndUpdate({ user: req.user.id }, { items: [] });
-
-    // Send confirmation email
-    const htmlContent = `
-      <h2>Order Confirmation</h2>
-      <p>Thank you for your order!</p>
-      <p>Order ID: ${order._id}</p>
-      <p>Total Amount: ₹${total.toFixed(2)}</p>
-      <p>Payment Method: ${paymentMethod}</p>
-    `;
-    await sendEmail(req.user.email, 'Order Confirmation', htmlContent);
-
-    res.status(201).json({ success: true, message: 'Order created', order });
+    sendResponse(res, 201, true, 'Order created successfully', order);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getOrders = async (req, res) => {
+const getUserOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user.id })
       .populate('items.product')
-      .populate('coupon')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, orders });
+    sendResponse(res, 200, true, 'Orders fetched successfully', orders);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getOrderById = async (req, res) => {
+const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate('items.product')
-      .populate('user', 'name email phone')
-      .populate('coupon');
+    const order = await Order.findById(req.params.id).populate('items.product');
 
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    if (order.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    res.json({ success: true, order });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const updateOrderStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    order.orderStatus = status;
-    await order.save();
-
-    res.json({ success: true, message: 'Order status updated', order });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const cancelOrder = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return sendError(res, 404, 'Order not found');
     }
 
     if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized' });
+      return sendError(res, 403, 'Not authorized to view this order');
     }
 
-    if (['shipped', 'delivered'].includes(order.orderStatus)) {
-      return res.status(400).json({ message: 'Cannot cancel this order' });
+    sendResponse(res, 200, true, 'Order fetched successfully', order);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return sendError(res, 404, 'Order not found');
+    }
+
+    if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return sendError(res, 403, 'Not authorized to cancel this order');
+    }
+
+    if (order.orderStatus === 'delivered' || order.orderStatus === 'cancelled') {
+      return sendError(res, 400, 'Cannot cancel this order');
+    }
+
+    // Restore product stock
+    for (const item of order.items) {
+      const product = await Product.findById(item.product);
+      if (product) {
+        product.stock += item.quantity;
+        await product.save();
+      }
     }
 
     order.orderStatus = 'cancelled';
     await order.save();
 
-    res.json({ success: true, message: 'Order cancelled', order });
+    sendResponse(res, 200, true, 'Order cancelled successfully', order);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const getAllOrders = async (req, res) => {
+const initializeRazorpay = async (req, res) => {
   try {
-    const orders = await Order.find()
-      .populate('user', 'name email')
-      .populate('items.product')
-      .sort({ createdAt: -1 });
+    const { orderId } = req.body;
+    const order = await Order.findById(orderId);
 
-    res.json({ success: true, orders });
+    if (!order) {
+      return sendError(res, 404, 'Order not found');
+    }
+
+    const options = {
+      amount: order.totalPrice * 100,
+      currency: 'INR',
+      receipt: order._id.toString(),
+    };
+
+    const payment = await razorpay.orders.create(options);
+
+    sendResponse(res, 200, true, 'Razorpay order created', payment);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
+};
+
+const initializeStripe = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return sendError(res, 404, 'Order not found');
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'inr',
+            product_data: {
+              name: `Order #${order._id}`,
+            },
+            unit_amount: Math.round(order.totalPrice * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.CLIENT_URL}/order-success?orderId=${order._id}`,
+      cancel_url: `${process.env.CLIENT_URL}/checkout`,
+    });
+
+    sendResponse(res, 200, true, 'Stripe session created', { sessionId: session.id });
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+export {
+  createOrder,
+  getUserOrders,
+  getOrderById,
+  cancelOrder,
+  initializeRazorpay,
+  initializeStripe,
 };

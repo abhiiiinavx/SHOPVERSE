@@ -1,156 +1,170 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
-import { sendEmail } from '../config/nodemailer.js';
-import crypto from 'crypto';
+import bcryptjs from 'bcryptjs';
+import { generateToken, generateResetToken, sendResponse, sendError } from '../utils/helpers.js';
+import sendEmail from '../config/email.js';
 
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
-  });
-};
-
-export const register = async (req, res) => {
+const register = async (req, res) => {
   try {
-    const { name, email, password, confirmPassword } = req.body;
+    const { name, email, password, phone } = req.body;
 
-    if (!name || !email || !password || !confirmPassword) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: 'Passwords do not match' });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email already registered' });
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return sendError(res, 400, 'User already exists with that email');
     }
 
     const user = await User.create({
       name,
       email,
-      password
+      password,
+      phone,
     });
 
     const token = generateToken(user._id, user.role);
 
-    res.status(201).json({
-      success: true,
-      message: 'User registered successfully',
-      token,
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    sendResponse(res, 201, true, 'User registered successfully', {
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        avatar: user.avatar
-      }
+      },
+      token,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return sendError(res, 400, 'Please provide email and password');
     }
 
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return sendError(res, 401, 'Invalid email or password');
     }
 
-    const isPasswordValid = await user.matchPassword(password);
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return sendError(res, 401, 'Invalid email or password');
     }
+
+    user.lastLogin = new Date();
+    await user.save();
 
     const token = generateToken(user._id, user.role);
 
-    res.json({
-      success: true,
-      message: 'Logged in successfully',
-      token,
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    sendResponse(res, 200, true, 'Login successful', {
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        avatar: user.avatar
-      }
+      },
+      token,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const logout = (req, res) => {
-  res.json({ success: true, message: 'Logged out successfully' });
+const logout = (req, res) => {
+  res.clearCookie('token');
+  sendResponse(res, 200, true, 'Logout successful');
 };
 
-export const forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendError(res, 404, 'User not found');
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetTokenExpire = Date.now() + 30 * 60 * 1000; // 30 minutes
+    const { token, hashedToken } = generateResetToken();
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = new Date(Date.now() + 30 * 60 * 1000);
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-    const htmlContent = `
-      <h2>Password Reset Request</h2>
-      <p>Please click the link below to reset your password:</p>
-      <a href="${resetUrl}">Reset Password</a>
-      <p>This link expires in 30 minutes.</p>
-    `;
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${token}`;
+    const message = `Click here to reset your password: ${resetUrl}`;
 
-    await sendEmail(email, 'Password Reset Request', htmlContent);
+    await sendEmail({
+      email: user.email,
+      subject: 'Password Reset Request',
+      message,
+    });
 
-    res.json({ success: true, message: 'Password reset link sent to your email' });
+    sendResponse(res, 200, true, 'Reset link sent to your email');
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
   try {
-    const { resetToken, newPassword, confirmPassword } = req.body;
+    const { token } = req.params;
+    const { password, confirmPassword } = req.body;
 
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ message: 'Passwords do not match' });
+    if (password !== confirmPassword) {
+      return sendError(res, 400, 'Passwords do not match');
     }
 
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
     const user = await User.findOne({
-      resetToken: hashedToken,
-      resetTokenExpire: { $gt: Date.now() }
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token' });
+      return sendError(res, 400, 'Invalid or expired reset token');
     }
 
-    user.password = newPassword;
-    user.resetToken = undefined;
-    user.resetTokenExpire = undefined;
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
     await user.save();
 
-    res.json({ success: true, message: 'Password reset successfully' });
+    sendResponse(res, 200, true, 'Password reset successfully');
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message);
   }
 };
 
-export const verifyToken = (req, res) => {
-  res.json({ success: true, user: req.user });
+const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    sendResponse(res, 200, true, 'User fetched successfully', user);
+  } catch (error) {
+    sendError(res, 500, error.message);
+  }
+};
+
+export {
+  register,
+  login,
+  logout,
+  forgotPassword,
+  resetPassword,
+  getCurrentUser,
 };
