@@ -1,52 +1,65 @@
 import mongoose from 'mongoose';
 
-const couponSchema = new mongoose.Schema({
-  code: {
-    type: String,
-    required: true,
-    unique: true,
-    uppercase: true
-  },
-  description: String,
-  discountType: {
-    type: String,
-    enum: ['percentage', 'fixed'],
-    required: true
-  },
-  discountValue: {
-    type: Number,
-    required: true
-  },
-  maxDiscount: Number,
-  minPurchase: {
-    type: Number,
-    default: 0
-  },
-  maxUses: {
-    type: Number,
-    default: null
-  },
-  usedCount: {
-    type: Number,
-    default: 0
-  },
-  usedBy: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+const couponSchema = new mongoose.Schema(
+  {
+    code: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
     },
-    usedAt: Date
-  }],
-  startDate: Date,
-  endDate: Date,
-  active: {
-    type: Boolean,
-    default: true
+    description: String,
+    discountType: {
+      type: String,
+      enum: ['percentage', 'fixed'],
+      default: 'percentage',
+    },
+    discountValue: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    minPurchaseAmount: {
+      type: Number,
+      default: 0,
+    },
+    maxUsageCount: {
+      type: Number,
+      default: null,
+    },
+    currentUsageCount: {
+      type: Number,
+      default: 0,
+    },
+    maxUsagePerUser: {
+      type: Number,
+      default: 1,
+    },
+    validFrom: Date,
+    validTill: {
+      type: Date,
+      required: true,
+    },
+    applicableCategories: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+    }],
+    applicableProducts: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product',
+    }],
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+  { timestamps: true }
+);
 
-export default mongoose.model('Coupon', couponSchema);
+const Coupon = mongoose.model('Coupon', couponSchema);
+
+export default Coupon;

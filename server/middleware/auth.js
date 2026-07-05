@@ -1,26 +1,28 @@
 import jwt from 'jsonwebtoken';
 
-export const authMiddleware = (req, res, next) => {
+const protect = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    
+
     if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ error: 'No authorization token' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Invalid or expired token' });
+    res.status(401).json({ error: 'Invalid token' });
   }
 };
 
-export const adminMiddleware = (req, res, next) => {
-  authMiddleware(req, res, () => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Admin access required' });
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
     next();
-  });
+  };
 };
+
+export { protect, authorize };
