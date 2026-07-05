@@ -1,49 +1,60 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { addToCart, removeFromCart, updateCartItem, clearCart } from '../redux/cartSlice.js';
-import toast from 'react-hot-toast';
+import { useCallback } from 'react';
+import api from '../utils/api';
 
-export const useCart = () => {
+const useCart = () => {
   const dispatch = useDispatch();
   const cart = useSelector((state) => state.cart);
 
-  const handleAddToCart = (product, quantity = 1, color = '', size = '') => {
-    dispatch(addToCart({ product, quantity, color, size }));
-    toast.success('Added to cart');
-  };
-
-  const handleRemoveFromCart = (id) => {
-    dispatch(removeFromCart(id));
-    toast.success('Removed from cart');
-  };
-
-  const handleUpdateCart = (id, quantity) => {
-    if (quantity <= 0) {
-      handleRemoveFromCart(id);
-    } else {
-      dispatch(updateCartItem({ id, quantity }));
+  const fetchCart = useCallback(async () => {
+    try {
+      const response = await api.get('/cart');
+      dispatch({ type: 'cart/setCart', payload: response.data.data });
+    } catch (error) {
+      console.error('Error fetching cart:', error);
     }
-  };
+  }, [dispatch]);
 
-  const handleClearCart = () => {
-    dispatch(clearCart());
-    toast.success('Cart cleared');
-  };
+  const addToCart = useCallback(
+    async (productId, quantity, selectedColor, selectedSize) => {
+      try {
+        const response = await api.post('/cart/add', {
+          productId,
+          quantity,
+          selectedColor,
+          selectedSize,
+        });
+        return response.data.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+    []
+  );
 
-  const getTotalPrice = () => {
-    return cart.items.reduce((total, item) => total + (item.product.price * item.quantity), 0);
-  };
+  const removeFromCart = useCallback(async (productId) => {
+    try {
+      await api.delete('/cart/remove', { data: { productId } });
+    } catch (error) {
+      throw error;
+    }
+  }, []);
 
-  const getTotalItems = () => {
-    return cart.items.reduce((total, item) => total + item.quantity, 0);
-  };
+  const updateCartItem = useCallback(async (productId, quantity) => {
+    try {
+      await api.put('/cart/update', { productId, quantity });
+    } catch (error) {
+      throw error;
+    }
+  }, []);
 
   return {
     cart,
-    handleAddToCart,
-    handleRemoveFromCart,
-    handleUpdateCart,
-    handleClearCart,
-    getTotalPrice,
-    getTotalItems,
+    fetchCart,
+    addToCart,
+    removeFromCart,
+    updateCartItem,
   };
 };
+
+export default useCart;

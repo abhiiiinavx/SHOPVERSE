@@ -1,69 +1,66 @@
-import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { authAPI } from '../api/endpoints.js';
-import { loginSuccess, logout } from '../redux/authSlice.js';
-import toast from 'react-hot-toast';
+import { useCallback } from 'react';
+import api from '../utils/api';
 
-export const useAuth = () => {
+const useAuth = () => {
   const dispatch = useDispatch();
   const auth = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    const verifyToken = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const response = await authAPI.verifyToken();
-          if (response.data.success) {
-            dispatch(loginSuccess({ user: response.data.user, token }));
-          }
-        } catch (error) {
-          dispatch(logout());
-        }
+  const login = useCallback(
+    async (email, password) => {
+      try {
+        dispatch({ type: 'auth/setLoading', payload: true });
+        const response = await api.post('/auth/login', { email, password });
+        dispatch({
+          type: 'auth/setUser',
+          payload: response.data.data,
+        });
+        return response.data.data;
+      } catch (error) {
+        dispatch({ type: 'auth/setError', payload: error.message });
+        throw error;
+      } finally {
+        dispatch({ type: 'auth/setLoading', payload: false });
       }
-    };
+    },
+    [dispatch]
+  );
 
-    verifyToken();
+  const register = useCallback(
+    async (name, email, password, phone) => {
+      try {
+        dispatch({ type: 'auth/setLoading', payload: true });
+        const response = await api.post('/auth/register', {
+          name,
+          email,
+          password,
+          phone,
+        });
+        dispatch({
+          type: 'auth/setUser',
+          payload: response.data.data,
+        });
+        return response.data.data;
+      } catch (error) {
+        dispatch({ type: 'auth/setError', payload: error.message });
+        throw error;
+      } finally {
+        dispatch({ type: 'auth/setLoading', payload: false });
+      }
+    },
+    [dispatch]
+  );
+
+  const logout = useCallback(() => {
+    dispatch({ type: 'auth/logout' });
   }, [dispatch]);
 
-  return auth;
+  return {
+    auth,
+    login,
+    register,
+    logout,
+  };
 };
 
-export const useAuthActions = () => {
-  const dispatch = useDispatch();
-
-  const login = async (email, password) => {
-    try {
-      const response = await authAPI.login({ email, password });
-      if (response.data.success) {
-        dispatch(loginSuccess({ user: response.data.user, token: response.data.token }));
-        toast.success('Login successful');
-        return true;
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
-      return false;
-    }
-  };
-
-  const register = async (name, email, password, confirmPassword) => {
-    try {
-      const response = await authAPI.register({ name, email, password, confirmPassword });
-      if (response.data.success) {
-        dispatch(loginSuccess({ user: response.data.user, token: response.data.token }));
-        toast.success('Registration successful');
-        return true;
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
-      return false;
-    }
-  };
-
-  const logoutUser = () => {
-    dispatch(logout());
-    toast.success('Logged out successfully');
-  };
-
-  return { login, register, logoutUser };
-};
+export default useAuth;

@@ -1,27 +1,34 @@
-/** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
     './index.html',
-    './src/**/*.{js,jsx}',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
       colors: {
-        primary: '#FF6B35',
-        secondary: '#004E89',
-        accent: '#F7B801',
-        dark: '#1a1a1a',
-        light: '#f5f5f5',
+        primary: '#1f2937',
+        secondary: '#ef4444',
+        accent: '#3b82f6',
+        light: '#f9fafb',
+        dark: '#111827',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Poppins', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
-      backdropBlur: {
-        glass: '10px',
+      borderRadius: {
+        xl: '1rem',
+      },
+      boxShadow: {
+        glow: '0 0 20px rgba(59, 130, 246, 0.3)',
+        glass: '0 8px 32px rgba(31, 41, 55, 0.1)',
+      },
+      backdropFilter: {
+        glass: 'blur(10px)',
       },
     },
   },
-  plugins: [],
-  darkMode: 'class',
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+  ],
 };
