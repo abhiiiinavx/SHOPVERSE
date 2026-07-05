@@ -1,15 +1,29 @@
 import express from 'express';
-import { getProfile, updateProfile, getAllUsers, getUserById, updateUserStatus, deleteUser } from '../controllers/userController.js';
-import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
-import upload from '../config/multer.js';
+import { protect, authorize } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
+import {
+  getUserProfile,
+  updateUserProfile,
+  uploadAvatar,
+  addAddress,
+  updateAddress,
+  deleteAddress,
+  getAllUsers,
+  getUserById,
+} from '../controllers/userController.js';
 
 const router = express.Router();
 
-router.get('/profile', authMiddleware, getProfile);
-router.put('/profile', authMiddleware, upload.single('avatar'), updateProfile);
-router.get('/all', authMiddleware, adminMiddleware, getAllUsers);
-router.get('/:id', authMiddleware, adminMiddleware, getUserById);
-router.put('/:id/status', authMiddleware, adminMiddleware, updateUserStatus);
-router.delete('/:id', authMiddleware, adminMiddleware, deleteUser);
+// User routes
+router.get('/profile', protect, getUserProfile);
+router.put('/profile', protect, updateUserProfile);
+router.post('/avatar', protect, upload.single('avatar'), uploadAvatar);
+router.post('/addresses', protect, addAddress);
+router.put('/addresses/:addressId', protect, updateAddress);
+router.delete('/addresses/:addressId', protect, deleteAddress);
+
+// Admin routes
+router.get('/', protect, authorize('admin'), getAllUsers);
+router.get('/:id', protect, getUserById);
 
 export default router;

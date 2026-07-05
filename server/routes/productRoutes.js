@@ -1,17 +1,53 @@
 import express from 'express';
-import { getAllProducts, getProductById, createProduct, updateProduct, deleteProduct, getFeaturedProducts, getTrendingProducts, getNewArrivals } from '../controllers/productController.js';
-import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
-import upload from '../config/multer.js';
+import { protect, authorize } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
+import {
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getFeaturedProducts,
+  getTopRatedProducts,
+  searchProducts,
+} from '../controllers/productController.js';
+import { productValidation } from '../utils/validators.js';
+import handleValidationErrors from '../middleware/validation.js';
 
 const router = express.Router();
 
+// Public routes
 router.get('/', getAllProducts);
+router.get('/search', searchProducts);
 router.get('/featured', getFeaturedProducts);
-router.get('/trending', getTrendingProducts);
-router.get('/new-arrivals', getNewArrivals);
+router.get('/top-rated', getTopRatedProducts);
 router.get('/:id', getProductById);
-router.post('/', authMiddleware, adminMiddleware, upload.array('images', 10), createProduct);
-router.put('/:id', authMiddleware, adminMiddleware, upload.array('images', 10), updateProduct);
-router.delete('/:id', authMiddleware, adminMiddleware, deleteProduct);
+
+// Protected routes
+router.post(
+  '/',
+  protect,
+  authorize('admin', 'seller'),
+  upload.array('images', 5),
+  productValidation.create,
+  handleValidationErrors,
+  createProduct
+);
+
+router.put(
+  '/:id',
+  protect,
+  authorize('admin', 'seller'),
+  productValidation.update,
+  handleValidationErrors,
+  updateProduct
+);
+
+router.delete(
+  '/:id',
+  protect,
+  authorize('admin', 'seller'),
+  deleteProduct
+);
 
 export default router;

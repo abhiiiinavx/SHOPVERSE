@@ -1,13 +1,22 @@
 import express from 'express';
-import { getAllCoupons, validateCoupon, createCoupon, updateCoupon, deleteCoupon } from '../controllers/couponController.js';
-import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
+import { protect, authorize } from '../middleware/auth.js';
+import {
+  getAllCoupons,
+  validateCoupon,
+  createCoupon,
+  updateCoupon,
+  deleteCoupon,
+} from '../controllers/couponController.js';
 
 const router = express.Router();
 
+// Public routes
 router.get('/', getAllCoupons);
 router.post('/validate', validateCoupon);
-router.post('/', authMiddleware, adminMiddleware, createCoupon);
-router.put('/:id', authMiddleware, adminMiddleware, updateCoupon);
-router.delete('/:id', authMiddleware, adminMiddleware, deleteCoupon);
+
+// Admin routes
+router.post('/', protect, authorize('admin'), createCoupon);
+router.put('/:id', protect, authorize('admin'), updateCoupon);
+router.delete('/:id', protect, authorize('admin'), deleteCoupon);
 
 export default router;

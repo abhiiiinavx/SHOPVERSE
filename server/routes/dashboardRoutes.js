@@ -1,13 +1,18 @@
 import express from 'express';
-import { getDashboardStats, getSalesChart, getRevenueChart, getTopSellingProducts, getCustomerMetrics } from '../controllers/dashboardController.js';
-import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
+import { protect, authorize } from '../middleware/auth.js';
+import {
+  getDashboardStats,
+  getSalesData,
+  getRevenueData,
+  getTopProducts,
+} from '../controllers/dashboardController.js';
 
 const router = express.Router();
 
-router.get('/stats', authMiddleware, adminMiddleware, getDashboardStats);
-router.get('/sales-chart', authMiddleware, adminMiddleware, getSalesChart);
-router.get('/revenue-chart', authMiddleware, adminMiddleware, getRevenueChart);
-router.get('/top-products', authMiddleware, adminMiddleware, getTopSellingProducts);
-router.get('/customer-metrics', authMiddleware, adminMiddleware, getCustomerMetrics);
+// Admin routes
+router.get('/stats', protect, authorize('admin'), getDashboardStats);
+router.get('/sales', protect, authorize('admin'), getSalesData);
+router.get('/revenue', protect, authorize('admin'), getRevenueData);
+router.get('/top-products', protect, authorize('admin'), getTopProducts);
 
 export default router;

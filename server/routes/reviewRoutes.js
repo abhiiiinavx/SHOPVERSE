@@ -1,13 +1,25 @@
 import express from 'express';
-import { createReview, getProductReviews, getMyReviews, updateReview, deleteReview } from '../controllers/reviewController.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
+import {
+  getProductReviews,
+  createReview,
+  updateReview,
+  deleteReview,
+} from '../controllers/reviewController.js';
+import { reviewValidation } from '../utils/validators.js';
+import handleValidationErrors from '../middleware/validation.js';
 
 const router = express.Router();
 
-router.post('/', authMiddleware, createReview);
-router.get('/product/:productId', getProductReviews);
-router.get('/my/reviews', authMiddleware, getMyReviews);
-router.put('/:id', authMiddleware, updateReview);
-router.delete('/:id', authMiddleware, deleteReview);
+router.get('/:productId', getProductReviews);
+router.post(
+  '/',
+  protect,
+  reviewValidation.create,
+  handleValidationErrors,
+  createReview
+);
+router.put('/:id', protect, updateReview);
+router.delete('/:id', protect, deleteReview);
 
 export default router;
