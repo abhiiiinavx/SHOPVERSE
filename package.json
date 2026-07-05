@@ -1,0 +1,14 @@
+{
+  "name": "shopverse",
+  "version": "1.0.0",
+  "description": "Premium E-Commerce Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "build": "concurrently \"cd server && npm run build\" \"cd client && npm run build\"",
+    "start": "cd server && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
